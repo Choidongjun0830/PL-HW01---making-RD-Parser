@@ -2,21 +2,28 @@ import java.util.*;
 
 public class Parser {
 
-    private enum TokenCode {
-        INT_LIT, IDENT, ASSIGN_OP, ADD_OP, SUB_OP, MULT_OP, DIV_OP, LEFT_PAREN, RIGHT_PAREN, EQ_OP, NEQ_OP, LT_OP, GT_OP, LTE_OP, GTE_OP, PRINT, SEMI_COLON, EOF
+    /* Global declarations */
+    /* Variables */
+    static int charClass;
+    static String currentChar;
+    static String nextChar;
+    static TokenType nextToken;
+    static boolean errorFlag;
+
+    //Character classes
+    static final int LETTER = 0;
+    static final int DIGIT = 1;
+    static final int UNKNOWN = 99;
+
+    //Token codes
+    private enum TokenType {
+        INT_LIT, IDENT, ASSIGN_OP, ADD_OP, SUB_OP, MULT_OP, DIV_OP,
+        LEFT_PAREN, RIGHT_PAREN, EQ_OP, NEQ_OP, LT_OP, GT_OP, LTE_OP, GTE_OP, PRINT, SEMI_COLON, EOF
     }
 
-    private static final Map<String, TokenCode> keywords;
-    private static final Map<String, Integer> variables = new HashMap<>();
+    private static final Map<String, Integer> resultMap = new HashMap<>();
     private static final List<Integer> printQueue = new ArrayList<>();
-    private static TokenCode nextToken;
-    private static String currentChar;
-    private static Queue<String> tokens = new LinkedList<>();
-
-    static {
-        keywords = new HashMap<>();
-        keywords.put("print", TokenCode.PRINT);
-    }
+    private static List<String> tokens = new ArrayList<>();
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -28,17 +35,20 @@ public class Parser {
             }
 
             tokenize(input);
-            System.out.println(tokens);
             program();
-
-            printQueue.forEach(System.out::println);
+            if(errorFlag == true){
+                System.out.println("syntax error!!");
+            }
+            if(!printQueue.isEmpty()) {
+                printQueue.forEach(System.out::println);
+            }
             printQueue.clear();
-            variables.clear();
+            resultMap.clear();
         }
-
         scanner.close();
     }
 
+    //입력 배열 split()하는 함수
     private static void tokenize(String input) { //ok
         String[] splitInput = input.split("\\s+");
         Collections.addAll(tokens, splitInput);
@@ -46,105 +56,225 @@ public class Parser {
 
     private static void lex() {
         if (tokens.isEmpty()) {
-            nextToken = TokenCode.EOF;
+            nextToken = TokenType.EOF;
             return;
         }
+        //첫번째 토큰 가져오기
+        String currentToken;
+        currentToken = tokens.remove(0);
+        System.out.println(currentChar);
 
-        currentChar = tokens.poll();
-        try {
-            nextToken = keywords.getOrDefault(currentChar, TokenCode.valueOf(currentChar.toUpperCase()));
-        } catch (IllegalArgumentException e) {
-            if (Character.isDigit(currentChar.charAt(0))) {
-                nextToken = TokenCode.INT_LIT;
-            } else if (Character.isLetter(currentChar.charAt(0))) {
-                nextToken = TokenCode.IDENT;
+        if(currentToken.chars().allMatch(Character::isLetter)) {
+            if (currentToken.equals("print")) {
+                nextToken = TokenType.PRINT;
             } else {
-                System.out.println("Syntax Error");
-                System.exit(1);
+                nextToken = TokenType.IDENT;
             }
+            currentChar = currentToken;
+        } else if (currentToken.chars().allMatch(Character::isDigit)) {
+            nextToken = TokenType.INT_LIT;
+            currentChar = currentToken;
+        } else {
+            lookup(currentToken);
         }
     }
 
+    private static void lookup(String currentToken) {
+        switch (currentToken) {
+            case "(", ")":
+                errorFlag = true; break;
+            case "+":
+                nextToken = TokenType.ADD_OP; break;
+            case "-":
+                nextToken = TokenType.SUB_OP; break;
+            case "*":
+                nextToken = TokenType.MULT_OP; break;
+            case "/":
+                nextToken = TokenType.DIV_OP; break;
+            case "<":
+                nextToken = TokenType.LT_OP; break;
+            case "<=":
+                nextToken = TokenType.LTE_OP; break;
+            case ">":
+                nextToken = TokenType.GT_OP; break;
+            case ">=":
+                nextToken = TokenType.GTE_OP; break;
+            case "=":
+                nextToken = TokenType.ASSIGN_OP; break;
+            case "==":
+                nextToken = TokenType.EQ_OP; break;
+            case "!=":
+                nextToken = TokenType.NEQ_OP; break;
+            case ";":
+                nextToken = TokenType.SEMI_COLON; break;
+            default:
+                nextToken = TokenType.EOF;
+                error();
+                break;
+        }
+    }
+
+    private static void error() {
+        errorFlag = true;
+    }
+
     private static void program() {
+        if(tokens.isEmpty()) {
+            return;
+        }
         lex();
-        while (nextToken != TokenCode.EOF) {
+        while (nextToken != TokenType.EOF && !errorFlag) {
             statement();
+            if (tokens.isEmpty()) {
+                nextToken = TokenType.EOF;
+            }
+        }
+        if(!tokens.isEmpty()) {
+            error();
+        }
+        if(!printQueue.isEmpty()) {
+            System.out.println(); //프린트 출력하기
         }
     }
 
     // Statement -> print IDENT ; | IDENT = Expr ;
     private static void statement() {
-        if (nextToken == TokenCode.PRINT) {
-            lex();  // Consume 'print'
-            if (nextToken != TokenCode.IDENT)
-                throw new RuntimeException("Syntax Error: Expected identifier after print");
-            String varName = currentChar;
-            lex();  // Consume identifier
-            if (nextToken != TokenCode.SEMI_COLON)
-                throw new RuntimeException("Syntax Error: Expected semicolon after identifier");
-            System.out.println(varName + " = " + variables.getOrDefault(varName, 0));
-        } else if (nextToken == TokenCode.IDENT) {
-            String varName = currentChar;
-            lex();  // Consume identifier
-            if (nextToken != TokenCode.ASSIGN_OP)
-                throw new RuntimeException("Syntax Error: Expected assignment operator after identifier");
-            lex();  // Consume '='
-            int value = expr();
-            variables.put(varName, value);
-            if (nextToken != TokenCode.SEMI_COLON)
-                throw new RuntimeException("Syntax Error: Expected semicolon after expression");
-        } else {
-            throw new RuntimeException("Syntax Error: Expected statement");
-        }
+        if (nextToken == TokenType.PRINT) {
+            lex();
+            String var_name = var();
+            lex();
+            if (nextToken == TokenType.SEMI_COLON){
+                if (resultMap.containsKey(var_name)) { //해시맵 자료형도 contains가 있나
+                    printQueue.add(resultMap.get(var_name));
+                    lex();
+                } else if(var_name == null)
+                    return;
+                else {
+                    System.out.print(0);
+                }
+            } else {
+                error();
+            }
+        } //다른 경우 만들기.
     }
 
-    // Expr -> Term { ( + | - ) Term }
     private static int expr() {
-        int value = term();
-        while (nextToken == TokenCode.ADD_OP || nextToken == TokenCode.SUB_OP) {
-            TokenCode op = nextToken;
-            lex();  // Consume '+' or '-'
-            int nextValue = term();
-            value = applyOp(value, nextValue, op);
-        }
-        return value;
-    }
-
-    // Term -> Factor { ( * | / ) Factor }
-    private static int term() {
-        int value = factor();
-        while (nextToken == TokenCode.MULT_OP || nextToken == TokenCode.DIV_OP) {
-            TokenCode op = nextToken;
-            lex();  // Consume '*' or '/'
-            int nextValue = factor();
-            value = applyOp(value, nextValue, op);
-        }
-        return value;
-    }
-
-    // Factor -> INT_LIT | IDENT
-    private static int factor() {
-        int value;
-        if (nextToken == TokenCode.INT_LIT) {
-            value = Integer.parseInt(currentChar);
-            lex();  // Consume literal
-        } else if (nextToken == TokenCode.IDENT) {
-            value = variables.getOrDefault(currentChar, 0);
-            lex();  // Consume identifier
+        String op = tokens.get(1);
+        int result;
+        boolean resultForBexpr;
+        List<String> operators = Arrays.asList(">", "<", "==", ">=", "<=", "!=");
+        if(operators.contains(op)) {
+            resultForBexpr = bexpr();
+            result = resultForBexpr ? 1 : 0;
         } else {
-            throw new RuntimeException("Syntax Error: Expected factor");
+            result = aexpr();
         }
-        return value;
+        return result;
     }
 
-    // Apply the operation
-    private static int applyOp(int left, int right, TokenCode op) {
-        switch (op) {
-            case ADD_OP: return left + right;
-            case SUB_OP: return left - right;
-            case MULT_OP: return left * right;
-            case DIV_OP: return left / right;
-            default: throw new IllegalArgumentException("Unknown operator");
+    private static boolean bexpr() {
+        boolean result = false;
+
+        int left_operand = number();
+        lex();
+        TokenType op = relop();
+        int right_operand = number();
+
+        switch(op) {
+            case EQ_OP:
+                result = left_operand == right_operand;
+                break;
+            case NEQ_OP:
+                result = left_operand != right_operand;
+                break;
+            case LT_OP:
+                result = left_operand < right_operand;
+                break;
+            case LTE_OP:
+                result = left_operand <= right_operand;
+                break;
+            case GT_OP:
+                result = left_operand > right_operand;
+                break;
+            case GTE_OP:
+                result = left_operand >= right_operand;
+                break;
+            default:
+                error();
         }
+        return result;
+
+    }
+
+    private static TokenType relop() {
+        List<TokenType> operators = Arrays.asList(TokenType.EQ_OP, TokenType.NEQ_OP, TokenType.LT_OP, TokenType.GT_OP, TokenType.LTE_OP, TokenType.GTE_OP);
+        if(!operators.contains(nextToken)){
+            error();
+            nextToken = TokenType.EOF;
+        }
+        return nextToken;
+    }
+
+    private static int aexpr() {
+        int result;
+        result = term(); //first_operand
+        String op = tokens.get(0);
+        List<String> validOperators = Arrays.asList("+", "-", "–");
+        while(validOperators.contains(op)){
+            op = tokens.remove(0);
+            int second_operand = term();
+            if(op.equals('+')) {
+                result += second_operand;
+            } else {
+                result -= second_operand;
+            }
+        }
+        return result;
+    }
+
+    private static int term() {
+        int result;
+        result = factor();
+        String op = tokens.get(0);
+        List<String> validOperators = Arrays.asList("*", "/");
+        while(validOperators.contains(op)){
+            op = tokens.remove(0);
+            int second_operand = factor();
+            if(op.equals('*')) {
+                result *= second_operand;
+            } else {
+                result /= second_operand;
+            }
+        }
+        return result;
+    }
+
+    private static int factor() {
+        int result = number();
+        return result;
+    }
+
+    private static int number() {
+        String result = "0";
+        lex();
+        if(nextToken == TokenType.INT_LIT) {
+            result = dec();
+        }
+        return Integer.parseInt(result);
+    }
+
+    private static String dec() {
+        return currentChar;
+    }
+
+    private static String var() {
+        List<String> validChars = Arrays.asList("x", "y", "z");
+        if (validChars.contains(currentChar)) {
+            return currentChar;
+        }
+        return "";
     }
 }
+
+
+
