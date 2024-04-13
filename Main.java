@@ -1,12 +1,10 @@
 import java.util.*;
 
-public class Parser {
+public class Main {
 
     /* Global declarations */
     /* Variables */
-    static int charClass;
     static String currentChar;
-    static String nextChar;
     static TokenType nextToken;
     static boolean errorFlag;
 
@@ -17,12 +15,11 @@ public class Parser {
 
     //Token codes
     private enum TokenType {
-        INT_LIT, IDENT, ASSIGN_OP, ADD_OP, SUB_OP, MULT_OP, DIV_OP,
-        LEFT_PAREN, RIGHT_PAREN, EQ_OP, NEQ_OP, LT_OP, GT_OP, LTE_OP, GTE_OP, PRINT, SEMI_COLON, EOF
+        INT_LIT, IDENT, ASSIGN_OP, ADD_OP, SUB_OP, MULT_OP, DIV_OP, LEFT_PAREN, RIGHT_PAREN, EQ_OP, NEQ_OP, LT_OP, GT_OP, LTE_OP, GTE_OP, PRINT, SEMI_COLON, EOF
     }
 
-    private static final Map<String, Integer> resultMap = new HashMap<>();
-    private static final List<Integer> printQueue = new ArrayList<>();
+    private static final Map<String, Object> resultMap = new HashMap<>();
+    private static final List<Object> printQueue = new ArrayList<>();
     private static List<String> tokens = new ArrayList<>();
 
     public static void main(String[] args) {
@@ -33,15 +30,20 @@ public class Parser {
             if (input.equals("terminate")) {
                 break;
             }
-
             tokenize(input);
             program();
+
             if(errorFlag == true){
                 System.out.println("syntax error!!");
             }
-            if(!printQueue.isEmpty()) {
-                printQueue.forEach(System.out::println);
+            if (!printQueue.isEmpty() && !errorFlag) {
+                printQueue.forEach(item -> System.out.print(item + " ")); // 각 원소 뒤에 공백 추가
             }
+            System.out.println(); // 모든 출력 후 줄바꿈 추가
+
+
+            errorFlag = false;
+            tokens.clear();
             printQueue.clear();
             resultMap.clear();
         }
@@ -62,7 +64,6 @@ public class Parser {
         //첫번째 토큰 가져오기
         String currentToken;
         currentToken = tokens.remove(0);
-        System.out.println(currentChar);
 
         if(currentToken.chars().allMatch(Character::isLetter)) {
             if (currentToken.equals("print")) {
@@ -119,7 +120,7 @@ public class Parser {
     }
 
     private static void program() {
-        if(tokens.isEmpty()) {
+        if(tokens.isEmpty() || tokens.get(0) == "") {
             return;
         }
         lex();
@@ -132,49 +133,66 @@ public class Parser {
         if(!tokens.isEmpty()) {
             error();
         }
-        if(!printQueue.isEmpty()) {
-            System.out.println(); //프린트 출력하기
-        }
     }
 
     // Statement -> print IDENT ; | IDENT = Expr ;
     private static void statement() {
+        String var_name;
         if (nextToken == TokenType.PRINT) {
             lex();
-            String var_name = var();
+            var_name = var();
             lex();
             if (nextToken == TokenType.SEMI_COLON){
                 if (resultMap.containsKey(var_name)) { //해시맵 자료형도 contains가 있나
                     printQueue.add(resultMap.get(var_name));
                     lex();
-                } else if(var_name == null)
+                }
+                else if(var_name == null)
                     return;
-                else {
-                    System.out.print(0);
+                else if(!errorFlag){
+                    printQueue.add(0);
                 }
             } else {
                 error();
             }
-        } //다른 경우 만들기.
+        } else if (nextToken == TokenType.IDENT) {
+            var_name = var();
+            lex();
+            if(nextToken == TokenType.ASSIGN_OP) {
+                Object result = expr();
+                lex();
+                if(nextToken == TokenType.SEMI_COLON){
+                    lex();
+                    resultMap.put(var_name, result);
+                }
+                else{
+                    error();
+                }
+            }
+            else{
+                error();
+            }
+        }
+        else{
+            error();
+        }
     }
 
-    private static int expr() {
+    private static Object expr() {
         String op = tokens.get(1);
-        int result;
+        Object result;
         boolean resultForBexpr;
         List<String> operators = Arrays.asList(">", "<", "==", ">=", "<=", "!=");
         if(operators.contains(op)) {
-            resultForBexpr = bexpr();
-            result = resultForBexpr ? 1 : 0;
+            result = bexpr();
         } else {
             result = aexpr();
         }
         return result;
     }
 
-    private static boolean bexpr() {
+    private static String bexpr() {
         boolean result = false;
-
         int left_operand = number();
         lex();
         TokenType op = relop();
@@ -202,7 +220,15 @@ public class Parser {
             default:
                 error();
         }
-        return result;
+        String str_result = "";
+        if(result == true){
+            str_result = "True";
+        } else if(result == false) {
+            str_result = "False";
+        } else {
+            error();
+        }
+        return str_result;
 
     }
 
@@ -216,18 +242,18 @@ public class Parser {
     }
 
     private static int aexpr() {
-        int result;
-        result = term(); //first_operand
-        String op = tokens.get(0);
+        int result = term(); //first_operand
+        String check_op = tokens.get(0);
         List<String> validOperators = Arrays.asList("+", "-", "–");
-        while(validOperators.contains(op)){
-            op = tokens.remove(0);
+        while(validOperators.contains(check_op)){
+            String op = tokens.remove(0);
             int second_operand = term();
-            if(op.equals('+')) {
+            if(op.equals("+")) {
                 result += second_operand;
             } else {
                 result -= second_operand;
             }
+            check_op = tokens.get(0); //check_op를 여기서 다시 조회해줘야 while문에서 벗어나게됨.
         }
         return result;
     }
@@ -235,16 +261,17 @@ public class Parser {
     private static int term() {
         int result;
         result = factor();
-        String op = tokens.get(0);
+        String check_op = tokens.get(0);
         List<String> validOperators = Arrays.asList("*", "/");
-        while(validOperators.contains(op)){
-            op = tokens.remove(0);
+        while(validOperators.contains(check_op)){
+            String op = tokens.remove(0);
             int second_operand = factor();
-            if(op.equals('*')) {
+            if(op.equals("*")) {
                 result *= second_operand;
             } else {
                 result /= second_operand;
             }
+            check_op = tokens.get(0); //check_op를 여기서 다시 조회해줘야 while문에서 벗어나게됨.
         }
         return result;
     }
@@ -259,6 +286,8 @@ public class Parser {
         lex();
         if(nextToken == TokenType.INT_LIT) {
             result = dec();
+        } else {
+            error();
         }
         return Integer.parseInt(result);
     }
@@ -271,10 +300,9 @@ public class Parser {
         List<String> validChars = Arrays.asList("x", "y", "z");
         if (validChars.contains(currentChar)) {
             return currentChar;
+        } else {
+            error();
         }
         return "";
     }
 }
-
-
-

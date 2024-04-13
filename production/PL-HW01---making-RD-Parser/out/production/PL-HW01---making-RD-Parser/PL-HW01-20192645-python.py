@@ -104,21 +104,24 @@ def program():
             nextToken = EOF
     if tokens:
         error()
+    if print_li:
+        print(' '.join(str(result_to_print) for result_to_print in print_li))
 
 def statement():
-    global currentChar, nextToken, results_dict, print_li, error_flag
+    global currentChar, nextToken, results_dict, print_li
     if nextToken == PRINT:
         lex()
         var_name = var()
         lex()
         if nextToken == SEMI_COLON:
             if var_name in results_dict:
+                #print(results_dict[var_name])
                 print_li.append(results_dict[var_name])
                 lex()
             elif var_name is None:
                 return
-            elif error_flag == False:
-                print_li.append(0)
+            else:
+                print(0)
         else:
             error()
     elif nextToken == IDENT:
@@ -130,6 +133,7 @@ def statement():
             if nextToken == SEMI_COLON:
                 lex()
                 results_dict[var_name] = result
+                #print(results_dict)
             else:
                 error()
         else:
@@ -171,10 +175,6 @@ def bexpr(): #number, relop 호출하도록 변경
         result = left_operand >= right_operand
     else:
         error()
-    if result:
-        result = "TRUE"
-    else:
-        result = "FALSE"
     return result
 
 def relop():
@@ -241,10 +241,6 @@ while True:
     program()
     if error_flag == True:
         print("syntax error!!")
-
-    if print_li and error_flag == False:
-        print(' '.join(str(result_to_print) for result_to_print in print_li))
-
     error_flag = False
     results_dict = {}
     print_li = []
