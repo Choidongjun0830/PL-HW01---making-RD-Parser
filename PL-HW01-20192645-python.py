@@ -4,7 +4,6 @@ charClass = 0
 currentChar = ''
 nextChar = ''
 nextToken = 0
-i = -1
 error_flag = False
 
 #Character classes
@@ -94,7 +93,7 @@ def error():
     error_flag = True
 
 def program():
-    global nextToken, results_dict
+    global nextToken
     if not tokens:
         return
     lex()
@@ -122,7 +121,7 @@ def statement():
         else:
             error()
     elif nextToken == IDENT:
-        var_name = var()  # Get variable name
+        var_name = var()
         lex()
         if nextToken == ASSIGN_OP:
             result = expr()
@@ -139,7 +138,7 @@ def statement():
         error()
 
 def expr():
-    global nextToken, tokens
+    global tokens
     #bexpr인지, aexpr인지 결정하기 위해서 연산자 미리 보기
     op = tokens[1]
     if op in ['>', '<', '==', '>=', '<=', '!=']:  # Starting with a number
@@ -148,8 +147,7 @@ def expr():
         result = aexpr()
     return result
 
-def bexpr(): #number, relop 호출하도록 변경
-    global tokens
+def bexpr():
     result = False
     left_operand = number()  # Get left operand
 
@@ -178,7 +176,7 @@ def bexpr(): #number, relop 호출하도록 변경
     return result
 
 def relop():
-    global tokens, nextToken
+    global nextToken
     if nextToken not in [EQ_OP, NEQ_OP, LT_OP, GT_OP, LTE_OP, GTE_OP]:
         error()
         nextToken = EOF
@@ -209,12 +207,10 @@ def term():
             result /= second_operand
     return result
 def factor():
-    global tokens, nextToken
-    result = number()
-    return result
+    return number()
 
 def number():
-    global tokens, nextToken
+    global nextToken
     result = 0
     lex()
     if nextToken == INT_LIT:
@@ -239,7 +235,7 @@ while True:
         break
     tokens = code.split()
     program()
-    if error_flag == True:
+    if error_flag:
         print("syntax error!!")
 
     if print_li and error_flag == False:

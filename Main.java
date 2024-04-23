@@ -34,13 +34,12 @@ public class Main {
             program();
 
             if(errorFlag == true){
-                System.out.println("syntax error!!");
+                System.out.print("syntax error!!");
             }
             if (!printQueue.isEmpty() && !errorFlag) {
                 printQueue.forEach(item -> System.out.print(item + " ")); // 각 원소 뒤에 공백 추가
             }
             System.out.println(); // 모든 출력 후 줄바꿈 추가
-
 
             errorFlag = false;
             tokens.clear();
