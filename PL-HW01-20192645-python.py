@@ -1,15 +1,8 @@
 #Global delclarations
 #Variables
-charClass = 0
 currentChar = ''
-nextChar = ''
 nextToken = 0
 error_flag = False
-
-#Character classes
-LETTER = 0
-DIGIT = 1
-UNKNOWN = 99
 
 #Token codes
 INT_LIT = 10
@@ -141,7 +134,7 @@ def expr():
     global tokens
     #bexpr인지, aexpr인지 결정하기 위해서 연산자 미리 보기
     op = tokens[1]
-    if op in ['>', '<', '==', '>=', '<=', '!=']:  # Starting with a number
+    if op in ['>', '<', '==', '>=', '<=', '!=']:
         result = bexpr()
     else:
         result = aexpr()
@@ -182,7 +175,7 @@ def relop():
         nextToken = EOF
     return nextToken
 
-def aexpr(): #여기 수정
+def aexpr():
     global nextToken
     # { }니까 계산 안할 경우를 생각해서 첫번째 피연산자를 result에 넣기
     result = term()
